@@ -142,8 +142,9 @@
     <p id="final-text"></p>
     <img src="https://cdn-icons-png.flaticon.com/512/1828/1828884.png" alt="trophy" />
   </div>
-
-  <script>
+<!-- 載入 XLSX 函式庫 -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
     let allPairs = [];
     let selectedZh = null;
     let round = 0;
@@ -301,8 +302,6 @@
   };
   reader.readAsArrayBuffer(file);
 });
-      };
-      reader.readAsArrayBuffer(file);
     });
 
     document.getElementById("restart-button").addEventListener("click", () => {
@@ -336,3 +335,5 @@
   </script>
 </body>
 </html>
+
+  
