@@ -2,22 +2,42 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8">
-  <title>中英單字連線遊戲</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>中英2單字連線遊戲</title>
   <style>
     body {
       font-family: Arial, sans-serif;
       text-align: center;
-      margin: 40px;
+      margin: 20px;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    .device-type {
+      margin-top: 10px;
+      font-size: 14px;
+      color: #666;
     }
     .container {
       display: flex;
+      flex-direction: row;
       justify-content: space-around;
-      margin-top: 30px;
+      flex-wrap: wrap;
+      margin-top: 20px;
     }
     .column {
       display: flex;
       flex-direction: column;
       gap: 10px;
+      width: 45%;
+    }
+    @media (max-width: 768px) {
+      .container {
+        flex-direction: column;
+        align-items: center;
+      }
+      .column {
+        width: 90%;
+      }
     }
     .item {
       padding: 10px;
@@ -34,21 +54,45 @@
       background-color: #b2f2bb;
       pointer-events: none;
     }
+    .selected {
+      background-color: #ffe599 !important;
+    }
     #message {
       margin-top: 20px;
-      font-size: 20px;
+      font-size: 18px;
       color: red;
     }
-    #scoreboard, #timer {
-      margin-top: 20px;
+    #scoreboard, #timer, #time-setting, #difficulty-setting, #round-indicator, #summary {
+      margin-top: 15px;
+      font-size: 16px;
+    }
+    #final-summary {
+      display: none;
       font-size: 18px;
+      margin-top: 30px;
+    }
+    #final-summary img {
+      margin-top: 15px;
+      width: 100px;
     }
     #image-preview {
-      margin-top: 20px;
+      margin-top: 15px;
       height: 150px;
     }
     #image-preview img {
       max-height: 100%;
+      max-width: 100%;
+    }
+    .game-button {
+      margin-top: 15px;
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    input, select {
+      padding: 6px;
+      font-size: 16px;
+      margin-top: 5px;
     }
   </style>
 </head>
@@ -56,8 +100,31 @@
   <h1>中英單字連線遊戲</h1>
   <p>請點選一個中文，再點選對應的英文單字</p>
 
-  <input type="file" id="excelFile" accept=".xlsx" />
+  
 
+  <div style="margin-top: 10px;">
+    <label for="excelFile" class="game-button" style="display:inline-block;">📂 上傳單字庫 Excel</label>
+    <input type="file" id="excelFile" accept=".xlsx" style="display:none;" />
+  </div>
+
+  <div id="time-setting">
+    設定遊戲時間（秒）：<br>
+    <input type="number" id="timeInput" value="60" min="10" max="600" step="10">
+  </div>
+
+  <div id="difficulty-setting">
+    選擇難度：<br>
+    <select id="difficulty">
+      <option value="easy">簡單（5題）</option>
+      <option value="medium">中等（10題）</option>
+      <option value="hard">困難（全部）</option>
+    </select>
+  </div>
+
+  <button id="start-button" class="game-button">開始遊戲</button>
+  <button id="restart-button" class="game-button">重新開始</button>
+
+  <div id="round-indicator">目前關卡：第 1 關</div>
   <div id="scoreboard">得分：0 / 0</div>
   <div id="timer">剩餘時間：60 秒</div>
 
@@ -69,73 +136,93 @@
   </div>
 
   <div id="message"></div>
+  <div id="summary"></div>
+  <div id="final-summary">
+    <h2>🏆 遊戲完成！總成績</h2>
+    <p id="final-text"></p>
+    <img src="https://cdn-icons-png.flaticon.com/512/1828/1828884.png" alt="trophy" />
+  </div>
+<!-- 載入 XLSX 函式庫 -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
+    let allPairs = [];
+    let selectedZh = null;
+    let round = 0;
+    let score = 0;
+    let total = 10;
+    let timer = null;
+    let timeLeft = 0;
+    let startTime;
+    let totalTime = 0;
+    let totalScore = 0;
 
-  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
-  <script>
-    let wordPairs = [];
+    function updateTimerDisplay() {
+      document.getElementById("timer").textContent = `剩餘時間：${timeLeft} 秒`;
+    }
+
+    function startCountdown(duration) {
+      clearInterval(timer);
+      timeLeft = duration;
+      updateTimerDisplay();
+      timer = setInterval(() => {
+        timeLeft--;
+        updateTimerDisplay();
+        if (timeLeft <= 0) {
+          clearInterval(timer);
+          document.getElementById("message").textContent = "⏰ 時間到！請重新開始此關。";
+        }
+      }, 1000);
+    }
 
     function shuffle(array) {
       return array.sort(() => Math.random() - 0.5);
     }
 
-    const chineseCol = document.getElementById("chinese-column");
-    const englishCol = document.getElementById("english-column");
-    const messageDiv = document.getElementById("message");
-    const scoreBoard = document.getElementById("scoreboard");
-    const timerDisplay = document.getElementById("timer");
-    const imagePreview = document.getElementById("image-preview");
-
-    let selectedZh = null;
-    let score = 0;
-    let total = 0;
-    let timeLeft = 60;
-    let timer;
-
-    function speak(text) {
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'en-US';
-      speechSynthesis.speak(utterance);
+    function clearSelectedHighlight() {
+      document.querySelectorAll('.item.selected').forEach(el => {
+        el.classList.remove('selected');
+      });
     }
 
-    function updateScore() {
-      scoreBoard.textContent = `得分：${score} / ${total}`;
+    function showFinalSummary() {
+      const final = document.getElementById("final-summary");
+      const text = document.getElementById("final-text");
+      final.style.display = "block";
+      text.innerHTML = `你共完成 ${round} 關，總共配對 ${totalScore} 題<br>總用時：${totalTime} 秒。做得好！`;
     }
 
-    function startTimer() {
-      timeLeft = 60;
-      timerDisplay.textContent = `剩餘時間：${timeLeft} 秒`;
-      timer = setInterval(() => {
-        timeLeft--;
-        timerDisplay.textContent = `剩餘時間：${timeLeft} 秒`;
-        if (timeLeft <= 0) {
-          clearInterval(timer);
-          messageDiv.textContent = "時間到！遊戲結束！";
-          messageDiv.style.color = "red";
-          document.querySelectorAll('.item').forEach(item => item.style.pointerEvents = 'none');
-        }
-      }, 1000);
-    }
+    function startRound() {
+      if (allPairs.length < total) {
+        showFinalSummary();
+        return;
+      }
 
-    function showImage(keyword) {
-      // 圖片網址可依需求改成你自己的 CDN 或圖片目錄
-      const imageUrl = `https://source.unsplash.com/featured/?${encodeURIComponent(keyword)}`;
-      imagePreview.innerHTML = `<img src="${imageUrl}" alt="${keyword}" />`;
-    }
-
-    function initGame() {
+      document.getElementById("final-summary").style.display = "none";
+      const chineseCol = document.getElementById("chinese-column");
+      const englishCol = document.getElementById("english-column");
+      const messageDiv = document.getElementById("message");
+      const summaryDiv = document.getElementById("summary");
       chineseCol.innerHTML = '';
       englishCol.innerHTML = '';
+      messageDiv.textContent = '';
+      summaryDiv.textContent = '';
+      clearSelectedHighlight();
+      selectedZh = null;
       score = 0;
-      total = wordPairs.length;
-      const zhList = shuffle([...wordPairs]);
-      const enList = shuffle([...wordPairs]);
+      startTime = Date.now();
+
+      const roundPairs = allPairs.splice(0, total);
+      const zhList = shuffle([...roundPairs]);
+      const enList = shuffle([...roundPairs]);
+
+      document.getElementById("round-indicator").textContent = `目前關卡：第 ${round + 1} 關`;
 
       zhList.forEach(pair => {
         const div = document.createElement("div");
         div.className = "item zh";
         div.textContent = pair.zh;
         div.dataset.zh = pair.zh;
-        div.dataset.image = pair.en;
+        div.dataset.en = pair.en;
         chineseCol.appendChild(div);
       });
 
@@ -147,54 +234,104 @@
         englishCol.appendChild(div);
       });
 
-      updateScore();
-      startTimer();
+      document.querySelectorAll(".zh").forEach(el => {
+        el.onclick = () => {
+          clearSelectedHighlight();
+          selectedZh = el;
+          el.classList.add("selected");
+        };
+      });
+
+      document.querySelectorAll(".en").forEach(el => {
+        el.onclick = () => {
+          if (!selectedZh) return;
+          const en = el.dataset.en;
+          if (selectedZh.dataset.en === en) {
+            selectedZh.classList.add("matched");
+            el.classList.add("matched");
+            score++;
+            document.getElementById("scoreboard").textContent = `得分：${score} / ${total}`;
+            if (score === total) {
+              clearInterval(timer);
+              round++;
+              totalScore += total;
+              const timeUsed = Math.round((Date.now() - startTime) / 1000);
+              totalTime += timeUsed;
+              summaryDiv.innerHTML = `✅ 第 ${round} 關完成！<br>⏱ 用時：${timeUsed} 秒<br>🎯 正確率：100%`;
+              setTimeout(startRound, 2500);
+            }
+          } else {
+            document.getElementById("message").textContent = "❌ 錯誤，請再試一次。";
+          }
+          selectedZh.classList.remove("selected");
+          selectedZh = null;
+        };
+      });
+
+      document.getElementById("scoreboard").textContent = `得分：0 / ${total}`;
+
+      const duration = parseInt(document.getElementById("timeInput").value) || 60;
+      startCountdown(duration);
     }
 
-    document.addEventListener("click", function(e) {
-      if (e.target.classList.contains("zh")) {
-        selectedZh = e.target;
-        messageDiv.textContent = "請選擇對應的英文單字";
-        messageDiv.style.color = "black";
-        showImage(e.target.dataset.image);
-      } else if (e.target.classList.contains("en") && selectedZh) {
-        const zhWord = selectedZh.dataset.zh;
-        const enWord = e.target.dataset.en;
-
-        const correctPair = wordPairs.find(p => p.zh === zhWord);
-        if (correctPair && correctPair.en === enWord) {
-          selectedZh.classList.add("matched");
-          e.target.classList.add("matched");
-          speak(enWord);
-          score++;
-          updateScore();
-          messageDiv.textContent = "✔ 配對正確！";
-          messageDiv.style.color = "green";
-          if (score === total) {
-            clearInterval(timer);
-            messageDiv.textContent = "🎉 恭喜完成所有配對！";
-          }
-        } else {
-          messageDiv.textContent = "❌ 錯誤配對，請再試一次。";
-          messageDiv.style.color = "red";
-        }
-        selectedZh = null;
+    document.getElementById("excelFile").addEventListener("change", function(e) {
+  const file = e.target.files[0];
+  if (!file) {
+    alert("請選擇一個 Excel 檔案！");
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = function(evt) {
+    try {
+      const data = new Uint8Array(evt.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const json = XLSX.utils.sheet_to_json(sheet);
+      if (!json.length || !json[0].中文 || !json[0].英文) {
+        alert("請確認 Excel 檔案有 '中文' 與 '英文' 欄位！");
+        return;
       }
+      allPairs = json.map(row => ({ zh: row["中文"], en: row["英文"] }));
+      round = 0;
+      totalScore = 0;
+      totalTime = 0;
+      startRound();
+    } catch (err) {
+      alert("檔案讀取錯誤，請確認格式是否正確！");
+    }
+  };
+  reader.readAsArrayBuffer(file);
+});
     });
 
-    document.getElementById('excelFile').addEventListener('change', function(e) {
-      const file = e.target.files[0];
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, {type: 'array'});
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const json = XLSX.utils.sheet_to_json(sheet);
-        wordPairs = json.map(row => ({ zh: row['中文'], en: row['英文'] }));
-        initGame();
-      };
-      reader.readAsArrayBuffer(file);
+    document.getElementById("restart-button").addEventListener("click", () => {
+      if (allPairs.length > 0) startRound();
     });
+
+    function adaptLearningExperience() {
+  // 裝置偵測功能已移除，保留空殼函式避免錯誤
+} else if (isTablet || (width > 768 && width <= 1024)) {
+    deviceInfo.textContent = "📟 平板裝置（已自動設定：中等，時間 60 秒）";
+    difficulty.value = "medium";
+    timeInput.value = 60;
+  } else {
+    deviceInfo.textContent = "💻 電腦 / 桌機（已自動設定：困難，時間 90 秒）";
+    difficulty.value = "hard";
+    timeInput.value = 90;
+  }
+} else if (width <= 1024) {
+        deviceInfo.textContent = "📟 平板裝置（已自動設定：中等，時間 60 秒）";
+        difficulty.value = "medium";
+        timeInput.value = 60;
+      } else {
+        deviceInfo.textContent = "💻 電腦 / 桌機（已自動設定：困難，時間 90 秒）";
+        difficulty.value = "hard";
+        timeInput.value = 90;
+      }
+    }
+
+    
+    
   </script>
 </body>
 </html>
