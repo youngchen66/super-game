@@ -274,18 +274,33 @@
     }
 
     document.getElementById("excelFile").addEventListener("change", function(e) {
-      const file = e.target.files[0];
-      const reader = new FileReader();
-      reader.onload = function(evt) {
-        const data = new Uint8Array(evt.target.result);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const json = XLSX.utils.sheet_to_json(sheet);
-        allPairs = json.map(row => ({ zh: row["中文"], en: row["英文"] }));
-        round = 0;
-        totalScore = 0;
-        totalTime = 0;
-        startRound();
+  const file = e.target.files[0];
+  if (!file) {
+    alert("請選擇一個 Excel 檔案！");
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = function(evt) {
+    try {
+      const data = new Uint8Array(evt.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const json = XLSX.utils.sheet_to_json(sheet);
+      if (!json.length || !json[0].中文 || !json[0].英文) {
+        alert("請確認 Excel 檔案有 '中文' 與 '英文' 欄位！");
+        return;
+      }
+      allPairs = json.map(row => ({ zh: row["中文"], en: row["英文"] }));
+      round = 0;
+      totalScore = 0;
+      totalTime = 0;
+      startRound();
+    } catch (err) {
+      alert("檔案讀取錯誤，請確認格式是否正確！");
+    }
+  };
+  reader.readAsArrayBuffer(file);
+});
       };
       reader.readAsArrayBuffer(file);
     });
