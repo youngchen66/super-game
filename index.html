@@ -309,17 +309,27 @@
     });
 
     function adaptLearningExperience() {
-      const ua = navigator.userAgent;
-      const width = window.innerWidth;
-      const deviceInfo = document.getElementById("deviceInfo");
-      const difficulty = document.getElementById("difficulty");
-      const timeInput = document.getElementById("timeInput");
+  const deviceInfo = document.getElementById("deviceInfo");
+  const difficulty = document.getElementById("difficulty");
+  const timeInput = document.getElementById("timeInput");
+  const width = window.innerWidth;
+  const isMobile = /iPhone|Android.*Mobile|Windows Phone/i.test(navigator.userAgent);
+  const isTablet = /iPad|Android(?!.*Mobile)/i.test(navigator.userAgent);
 
-      if (/Mobi|Android/i.test(ua)) {
-        deviceInfo.textContent = "📱 手機裝置（已自動設定：簡單，時間 45 秒）";
-        difficulty.value = "easy";
-        timeInput.value = 45;
-      } else if (width <= 1024) {
+  if (isMobile) {
+    deviceInfo.textContent = "📱 手機裝置（已自動設定：簡單，時間 45 秒）";
+    difficulty.value = "easy";
+    timeInput.value = 45;
+  } else if (isTablet || (width > 768 && width <= 1024)) {
+    deviceInfo.textContent = "📟 平板裝置（已自動設定：中等，時間 60 秒）";
+    difficulty.value = "medium";
+    timeInput.value = 60;
+  } else {
+    deviceInfo.textContent = "💻 電腦 / 桌機（已自動設定：困難，時間 90 秒）";
+    difficulty.value = "hard";
+    timeInput.value = 90;
+  }
+} else if (width <= 1024) {
         deviceInfo.textContent = "📟 平板裝置（已自動設定：中等，時間 60 秒）";
         difficulty.value = "medium";
         timeInput.value = 60;
@@ -335,5 +345,3 @@
   </script>
 </body>
 </html>
-
-  
