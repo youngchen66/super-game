@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>中英單字連線遊戲</title>
+  <title>中英2單字連線遊戲</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -97,10 +97,10 @@
   </style>
 </head>
 <body>
-  <h1>2中英單字連線遊戲</h1>
+  <h1>中英單字連線遊戲</h1>
   <p>請點選一個中文，再點選對應的英文單字</p>
 
-  <div class="device-type" id="deviceInfo">偵測裝置中...</div>
+  
 
   <div style="margin-top: 10px;">
     <label for="excelFile" class="game-button" style="display:inline-block;">📂 上傳單字庫 Excel</label>
@@ -309,18 +309,8 @@
     });
 
     function adaptLearningExperience() {
-  const deviceInfo = document.getElementById("deviceInfo");
-  const difficulty = document.getElementById("difficulty");
-  const timeInput = document.getElementById("timeInput");
-  const width = window.innerWidth;
-  const isMobile = /iPhone|Android.*Mobile|Windows Phone/i.test(navigator.userAgent);
-  const isTablet = /iPad|Android(?!.*Mobile)/i.test(navigator.userAgent);
-
-  if (isMobile) {
-    deviceInfo.textContent = "📱 手機裝置（已自動設定：簡單，時間 45 秒）";
-    difficulty.value = "easy";
-    timeInput.value = 45;
-  } else if (isTablet || (width > 768 && width <= 1024)) {
+  // 裝置自動偵測功能已取消，保留使用者自訂設定
+} else if (isTablet || (width > 768 && width <= 1024)) {
     deviceInfo.textContent = "📟 平板裝置（已自動設定：中等，時間 60 秒）";
     difficulty.value = "medium";
     timeInput.value = 60;
@@ -340,13 +330,8 @@
       }
     }
 
-    window.addEventListener("load", adaptLearningExperience);
-    window.addEventListener("resize", adaptLearningExperience);
+    
+    
   </script>
 </body>
 </html>
-
-   
-    
-
-  
