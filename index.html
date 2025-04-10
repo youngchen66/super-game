@@ -142,8 +142,9 @@
     <p id="final-text"></p>
     <img src="https://cdn-icons-png.flaticon.com/512/1828/1828884.png" alt="trophy" />
   </div>
-
-  <script>
+<!-- 載入 XLSX 函式庫 -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
     let allPairs = [];
     let selectedZh = null;
     let round = 0;
@@ -274,20 +275,33 @@
     }
 
     document.getElementById("excelFile").addEventListener("change", function(e) {
-      const file = e.target.files[0];
-      const reader = new FileReader();
-      reader.onload = function(evt) {
-        const data = new Uint8Array(evt.target.result);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const json = XLSX.utils.sheet_to_json(sheet);
-        allPairs = json.map(row => ({ zh: row["中文"], en: row["英文"] }));
-        round = 0;
-        totalScore = 0;
-        totalTime = 0;
-        startRound();
-      };
-      reader.readAsArrayBuffer(file);
+  const file = e.target.files[0];
+  if (!file) {
+    alert("請選擇一個 Excel 檔案！");
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = function(evt) {
+    try {
+      const data = new Uint8Array(evt.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const json = XLSX.utils.sheet_to_json(sheet);
+      if (!json.length || !json[0].中文 || !json[0].英文) {
+        alert("請確認 Excel 檔案有 '中文' 與 '英文' 欄位！");
+        return;
+      }
+      allPairs = json.map(row => ({ zh: row["中文"], en: row["英文"] }));
+      round = 0;
+      totalScore = 0;
+      totalTime = 0;
+      startRound();
+    } catch (err) {
+      alert("檔案讀取錯誤，請確認格式是否正確！");
+    }
+  };
+  reader.readAsArrayBuffer(file);
+});
     });
 
     document.getElementById("restart-button").addEventListener("click", () => {
@@ -295,17 +309,27 @@
     });
 
     function adaptLearningExperience() {
-      const ua = navigator.userAgent;
-      const width = window.innerWidth;
-      const deviceInfo = document.getElementById("deviceInfo");
-      const difficulty = document.getElementById("difficulty");
-      const timeInput = document.getElementById("timeInput");
+  const deviceInfo = document.getElementById("deviceInfo");
+  const difficulty = document.getElementById("difficulty");
+  const timeInput = document.getElementById("timeInput");
+  const width = window.innerWidth;
+  const isMobile = /iPhone|Android.*Mobile|Windows Phone/i.test(navigator.userAgent);
+  const isTablet = /iPad|Android(?!.*Mobile)/i.test(navigator.userAgent);
 
-      if (/Mobi|Android/i.test(ua)) {
-        deviceInfo.textContent = "📱 手機裝置（已自動設定：簡單，時間 45 秒）";
-        difficulty.value = "easy";
-        timeInput.value = 45;
-      } else if (width <= 1024) {
+  if (isMobile) {
+    deviceInfo.textContent = "📱 手機裝置（已自動設定：簡單，時間 45 秒）";
+    difficulty.value = "easy";
+    timeInput.value = 45;
+  } else if (isTablet || (width > 768 && width <= 1024)) {
+    deviceInfo.textContent = "📟 平板裝置（已自動設定：中等，時間 60 秒）";
+    difficulty.value = "medium";
+    timeInput.value = 60;
+  } else {
+    deviceInfo.textContent = "💻 電腦 / 桌機（已自動設定：困難，時間 90 秒）";
+    difficulty.value = "hard";
+    timeInput.value = 90;
+  }
+} else if (width <= 1024) {
         deviceInfo.textContent = "📟 平板裝置（已自動設定：中等，時間 60 秒）";
         difficulty.value = "medium";
         timeInput.value = 60;
@@ -322,10 +346,4 @@
 </body>
 </html>
 
-
-    
-      
-    
      
-
-   
